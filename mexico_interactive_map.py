@@ -20,6 +20,11 @@ analyzer = MexicoHealthAnalyzer()
 # Cargar municipios en el analyzer para análisis extendido
 analyzer.load_municipios_from_external(MUNICIPIOS_POR_ESTADO)
 
+@app.route('/health')
+def health_check():
+    """Health check endpoint para Render"""
+    return {'status': 'healthy', 'service': 'NASA Earth Change'}, 200
+
 @app.route('/')
 def index():
     """Página principal con mapa interactivo jerárquico"""
