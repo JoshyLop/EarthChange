@@ -1,0 +1,1123 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🇲🇽 Mapa Interactivo Jerárquico - México</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); overflow: hidden; }
+        #header { background: rgba(255, 255, 255, 0.95); padding: 15px 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); position: relative; z-index: 1000; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+        #header .logo { height: 60px; width: auto; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); order: 2; }
+        #header .header-text { flex: 1; order: 1; }
+        #header h1 { color: #2C3E50; font-size: 24px; margin-bottom: 5px; }
+        #header p { color: #7F8C8D; font-size: 14px; }
+        .breadcrumb { background: #ECF0F1; padding: 10px 20px; font-size: 14px; color: #34495E; display: flex; align-items: center; gap: 10px; }
+        .breadcrumb button { background: #3498DB; color: white; border: none; padding: 5px 15px; border-radius: 5px; cursor: pointer; font-size: 12px; transition: all 0.3s; }
+        .breadcrumb button:hover { background: #2980B9; transform: scale(1.05); }
+        #container { display: flex; height: calc(100vh - 125px); }
+        #map { flex: 1; height: 100%; }
+        #sidebar { width: 450px; background: white; overflow-y: auto; box-shadow: -2px 0 10px rgba(0,0,0,0.1); padding: 20px; max-height: calc(100vh - 125px); }
+        #info-panel { background: #f8f9fa; border-radius: 10px; padding: 20px; margin-bottom: 20px; }
+        #info-panel h2 { color: #2C3E50; margin-bottom: 15px; font-size: 20px; }
+        #info-panel h3 { color: #ffffff; margin: 15px 0 10px 0; font-size: 16px; }
+        .loading { text-align: center; padding: 40px; color: #7F8C8D; }
+        .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #3498DB; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .metric-card { background: white; padding: 15px; border-radius: 8px; margin: 10px 0; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .metric-card h4 { color: #34495E; font-size: 14px; margin-bottom: 8px; }
+        .metric-value { font-size: 24px; font-weight: bold; color: #2C3E50; }
+        .metric-label { font-size: 12px; color: #7F8C8D; margin-top: 5px; }
+        /* Sistema de Rangos de Salud con Colores */
+        .status-excelente { color: #27AE60; } /* Verde - Excelente: 80-100 */
+        .status-normal { color: #3498DB; }     /* Azul - Normal: 60-79 */
+        .status-severo { color: #F39C12; }     /* Naranja - Severo: 40-59 */
+        .status-critico { color: #E74C3C; }    /* Rojo - Crítico: 0-39 */
+        
+        /* Colores para fondos */
+        .bg-excelente { background: linear-gradient(135deg, #27AE60 0%, #229954 100%); }
+        .bg-normal { background: linear-gradient(135deg, #3498DB 0%, #2980B9 100%); }
+        .bg-severo { background: linear-gradient(135deg, #F39C12 0%, #E67E22 100%); }
+        .bg-critico { background: linear-gradient(135deg, #E74C3C 0%, #C0392B 100%); }
+        .instruction-box { background: linear-gradient(135deg, #1e7e34 0%, #17a2b8 100%); color: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; text-align: center; }
+        .instruction-box h3 { margin-bottom: 10px; font-size: 18px; }
+        .instruction-box p { font-size: 14px; line-height: 1.6; }
+        .state-list { max-height: 650px; overflow-y: auto; background: #f8f9fa; padding: 15px; border-radius: 8px; }
+        .state-item { background: white; padding: 10px 15px; margin: 5px 0; border-radius: 5px; cursor: pointer; transition: all 0.3s; display: flex; justify-content: space-between; align-items: center; }
+        .state-item:hover { background: #3498DB; color: white; transform: translateX(5px); }
+        .city-count { background: #3498DB; color: white; padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; }
+        .state-item:hover .city-count { background: white; color: #3498DB; }
+        .estado-info-card { background: white; padding: 20px; border-radius: 10px; margin: 15px 0; box-shadow: 0 3px 10px rgba(0,0,0,0.15); border-top: 5px solid #3498DB; }
+        .estado-info-card h3 { color: #2C3E50; margin-bottom: 15px; font-size: 22px; border-bottom: 3px solid #3498DB; padding-bottom: 10px; }
+        .info-row { display: flex; justify-content: space-between; margin: 10px 0; padding: 8px; background: #f8f9fa; border-radius: 5px; }
+        .info-row strong { color: #34495E; }
+        .info-row span { color: #7F8C8D; }
+        .info-description { background: #E8F4F8; padding: 15px; border-radius: 8px; margin-top: 15px; border-left: 4px solid #3498DB; color: #2C3E50; line-height: 1.6; }
+        .section-divider { border-top: 3px solid #3498DB; margin: 20px 0; padding-top: 10px; }
+        #city-data { border-top: 4px solid #27AE60; padding-top: 15px; margin-top: 20px; }
+        
+        /* Estilos para el modal de IA */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 9999; animation: fadeIn 0.3s; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .modal-content { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 15px; padding: 0; max-width: 700px; width: 90%; max-height: 85vh; overflow: hidden; box-shadow: 0 10px 50px rgba(0,0,0,0.5); animation: slideIn 0.3s; }
+        @keyframes slideIn { from { transform: translate(-50%, -60%); opacity: 0; } to { transform: translate(-50%, -50%); opacity: 1; } }
+        .modal-header { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 25px; display: flex; justify-content: space-between; align-items: center; }
+        .modal-header h2 { margin: 0; font-size: 24px; display: flex; align-items: center; gap: 10px; }
+        .modal-close { background: rgba(255,255,255,0.2); border: 2px solid white; color: white; font-size: 24px; width: 35px; height: 35px; border-radius: 50%; cursor: pointer; transition: all 0.3s; display: flex; align-items: center; justify-content: center; }
+        .modal-close:hover { background: white; color: #f5576c; transform: rotate(90deg); }
+        .modal-body { padding: 30px; max-height: calc(85vh - 160px); overflow-y: auto; }
+        .modal-section { margin-bottom: 25px; }
+        .modal-section h3 { color: #2C3E50; margin-bottom: 15px; font-size: 18px; display: flex; align-items: center; gap: 10px; border-bottom: 2px solid #f093fb; padding-bottom: 10px; }
+        .prediction-box { background: linear-gradient(135deg, #fff3cd 0%, #ffe8a1 100%); padding: 20px; border-radius: 10px; border-left: 5px solid #ffc107; color: #856404; line-height: 1.8; margin-bottom: 20px; }
+        .recommendations-list { background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%); padding: 20px; border-radius: 10px; border-left: 5px solid #17a2b8; }
+        .recommendations-list ul { margin: 15px 0 0 20px; color: #0c5460; }
+        .recommendations-list li { margin-bottom: 12px; line-height: 1.7; }
+        
+        /* Estilos para contenido formateado de IA (Markdown convertido) */
+        .prediction-box strong, .recommendations-list strong { color: #7a5e0f; font-weight: 700; }
+        .prediction-box em, .recommendations-list em { color: #6c4e00; font-style: italic; }
+        .prediction-box code, .recommendations-list code { 
+            background: rgba(0,0,0,0.1); 
+            padding: 2px 6px; 
+            border-radius: 4px; 
+            font-family: 'Courier New', monospace; 
+            font-size: 0.9em; 
+            color: #5a4400; 
+        }
+        .prediction-box a, .recommendations-list a { 
+            color: #007bff; 
+            text-decoration: underline; 
+        }
+        .prediction-box a:hover, .recommendations-list a:hover { 
+            color: #0056b3; 
+            text-decoration: none; 
+        }
+        .ai-badge { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 5px 15px; border-radius: 20px; font-size: 12px; font-weight: bold; display: inline-block; margin-bottom: 15px; }
+        .gemini-btn { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; border: none; padding: 12px 25px; border-radius: 25px; cursor: pointer; font-size: 14px; font-weight: bold; display: flex; align-items: center; gap: 10px; transition: all 0.3s; box-shadow: 0 4px 15px rgba(245, 87, 108, 0.4); margin: 15px 0; }
+        .gemini-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(245, 87, 108, 0.6); }
+        .gemini-btn:active { transform: translateY(0); }
+        
+        /* Estilos para el modal de gráficas */
+        .charts-btn { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; border: none; padding: 12px 25px; border-radius: 25px; cursor: pointer; font-size: 14px; font-weight: bold; display: flex; align-items: center; gap: 10px; transition: all 0.3s; box-shadow: 0 4px 15px rgba(56, 239, 125, 0.4); margin: 15px 0; }
+        .charts-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(56, 239, 125, 0.6); }
+        .charts-btn:active { transform: translateY(0); }
+        .charts-modal-header { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 25px; display: flex; justify-content: space-between; align-items: center; }
+        .chart-container { background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border-left: 4px solid #11998e; }
+        .chart-container h3 { color: #2C3E50; margin-bottom: 15px; font-size: 16px; display: flex; align-items: center; gap: 10px; }
+        .chart-canvas-wrapper { position: relative; height: 300px; margin-top: 15px; }
+        .chart-info-box { background: linear-gradient(135deg, #e0f7fa 0%, #b2ebf2 100%); padding: 15px; border-radius: 8px; margin-top: 10px; color: #00695c; font-size: 13px; line-height: 1.6; }
+        .metric-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 20px; }
+        .metric-summary-item { background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); padding: 15px; border-radius: 8px; text-align: center; }
+        .metric-summary-item .value { font-size: 24px; font-weight: bold; color: #2C3E50; }
+        .metric-summary-item .label { font-size: 12px; color: #7F8C8D; margin-top: 5px; }
+    </style>
+</head>
+<body>
+    <div id="header">
+        <img src="/img/EarthChange.jpeg" alt="Earth Change Logo" class="logo">
+        <div class="header-text">
+            <h1>🇲🇽 Earth Change - Mapa Interactivo de Salud Urbana - México</h1>
+            <p>Sistema de navegación jerárquica: Estado → Municipio/Ciudad → Análisis de APIs</p>
+        </div>
+    </div>
+    
+    <div class="breadcrumb">
+        <span id="breadcrumb-text">📍 Vista Nacional - Selecciona un Estado</span>
+        <button id="back-btn" style="display: none;">⬅ Volver a México</button>
+    </div>
+    
+    <div id="container">
+        <div id="map"></div>
+        <div id="sidebar">
+            <div id="info-panel">
+                <div class="instruction-box">
+                    <h3>🗺️ Navegación en 2 Pasos</h3>
+                    <p><strong>Paso 1:</strong> Selecciona un estado de la lista</p>
+                    <p><strong>Paso 2:</strong> Elige una ciudad para consultar APIs</p>
+                </div>
+                
+                <div id="estados-section">
+                    <h2>Estados de México (32)</h2>
+                    <div class="state-list" id="state-list"></div>
+                </div>
+                
+                <!-- Información del Estado -->
+                <div id="estado-info-section" style="display: none;">
+                    <div class="section-divider"></div>
+                    <div class="estado-info-card" id="estado-info-card"></div>
+                </div>
+                
+                <!-- Lista de Ciudades del Estado -->
+                <div id="cities-section" style="display: none;">
+                    <div class="section-divider"></div>
+                    <h2 id="estado-title"></h2>
+                    <div class="state-list" id="city-list"></div>
+                </div>
+                
+                <!-- Spinner de Carga -->
+                <div id="loading" class="loading" style="display: none;">
+                    <div class="spinner"></div>
+                    <p>Consultando APIs en tiempo real...</p>
+                </div>
+                
+                <!-- Análisis de Ciudad con APIs -->
+                <div id="city-data" style="display: none;">
+                    <div class="section-divider"></div>
+                    <h2 id="city-name" style="color: #27AE60; font-size: 22px; margin: 20px 0 15px 0;"></h2>
+                    <div id="city-metrics"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Datos embebidos del servidor -->
+    <script type="application/json" id="estados-data">{{ estados|tojson }}</script>
+    <script type="application/json" id="cities-data">{{ cities|tojson }}</script>
+    
+    <script>
+        let map, currentView = 'national', selectedEstado = null, estadoMarkers = [], cityMarkers = [];
+        let selectedCityMarker = null; // Para el marcador de la ciudad seleccionada
+        
+        // Cargar datos desde los scripts embebidos
+        const estados = JSON.parse(document.getElementById('estados-data').textContent);
+        const allCities = JSON.parse(document.getElementById('cities-data').textContent);
+        
+        /**
+         * Sistema de Rangos de Salud Urbana
+         * Calcula el nivel de salud y retorna color + etiqueta
+         */
+        function getHealthLevel(score) {
+            if (score >= 80) {
+                return {
+                    level: 'EXCELENTE',
+                    color: '#27AE60',
+                    bgClass: 'bg-excelente',
+                    statusClass: 'status-excelente',
+                    emoji: '🌟'
+                };
+            } else if (score >= 60) {
+                return {
+                    level: 'NORMAL',
+                    color: '#3498DB',
+                    bgClass: 'bg-normal',
+                    statusClass: 'status-normal',
+                    emoji: '✅'
+                };
+            } else if (score >= 40) {
+                return {
+                    level: 'SEVERO',
+                    color: '#F39C12',
+                    bgClass: 'bg-severo',
+                    statusClass: 'status-severo',
+                    emoji: '⚠️'
+                };
+            } else {
+                return {
+                    level: 'CRÍTICO',
+                    color: '#E74C3C',
+                    bgClass: 'bg-critico',
+                    statusClass: 'status-critico',
+                    emoji: '🚨'
+                };
+            }
+        }
+        
+        /**
+         * Calcula el tamaño del círculo basado en AQI (calidad del aire)
+         */
+        function getCircleRadius(aqi) {
+            if (!aqi) return 10;
+            
+            // AQI ranges: 0-50 (bueno), 51-100 (moderado), 101-150 (insalubre para sensibles),
+            // 151-200 (insalubre), 201-300 (muy insalubre), 301+ (peligroso)
+            if (aqi <= 50) return 8;        // Pequeño - aire bueno
+            else if (aqi <= 100) return 12; // Mediano - moderado
+            else if (aqi <= 150) return 16; // Grande - insalubre
+            else if (aqi <= 200) return 20; // Muy grande - muy insalubre
+            else return 25;                 // Enorme - peligroso
+        }
+        
+        function initMap() {
+            map = L.map('map').setView([23.6345, -102.5528], 5);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {attribution: '© OpenStreetMap'}).addTo(map);
+            showNationalView();
+            populateStateList();
+        }
+        
+        function showNationalView() {
+            currentView = 'national';
+            clearMarkers();
+            map.setView([23.6345, -102.5528], 5);
+            document.getElementById('breadcrumb-text').textContent = '📍 Vista Nacional - Selecciona un Estado';
+            document.getElementById('back-btn').style.display = 'none';
+            document.getElementById('estados-section').style.display = 'block';
+            document.getElementById('estado-info-section').style.display = 'none';
+            document.getElementById('cities-section').style.display = 'none';
+            document.getElementById('city-data').style.display = 'none';
+        }
+        
+        function selectEstado(estadoNombre) {
+            selectedEstado = estadoNombre;
+            currentView = 'state';
+            clearMarkers();
+            
+            const estadoInfo = estados[estadoNombre];
+            map.setView([estadoInfo.center[0], estadoInfo.center[1]], estadoInfo.zoom);
+            
+            fetch(`/api/estado/${encodeURIComponent(estadoNombre)}`)
+                .then(response => response.json())
+                .then(data => {
+                    showEstadoInfo(estadoNombre, data.info);
+                    // Usar 'municipios' en lugar de 'cities'
+                    showStateCities(estadoNombre, data.municipios || data.cities || []);
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('No se pudieron cargar los datos del estado');
+                });
+            
+            document.getElementById('breadcrumb-text').textContent = `📍 ${estadoNombre}`;
+            document.getElementById('back-btn').style.display = 'inline-block';
+            document.getElementById('estados-section').style.display = 'none';
+        }
+        
+        function showEstadoInfo(estadoNombre, info) {
+            const infoCard = document.getElementById('estado-info-card');
+            infoCard.innerHTML = `
+                <h3>📊 ${estadoNombre}</h3>
+                <div class="info-row">
+                    <strong>🏛️ Capital:</strong>
+                    <span>${info.capital}</span>
+                </div>
+                <div class="info-row">
+                    <strong>👥 Población:</strong>
+                    <span>${info.poblacion.toLocaleString()} habitantes</span>
+                </div>
+                <div class="info-row">
+                    <strong>📏 Superficie:</strong>
+                    <span>${info.superficie.toLocaleString()} km²</span>
+                </div>
+                <div class="info-row">
+                    <strong>📈 Densidad:</strong>
+                    <span>${(info.poblacion / info.superficie).toFixed(2)} hab/km²</span>
+                </div>
+                <div class="info-description">
+                    ℹ️ ${info.descripcion}
+                </div>
+            `;
+            document.getElementById('estado-info-section').style.display = 'block';
+        }
+        
+        function showStateCities(estadoNombre, cities) {
+            clearCityMarkers();
+            const cityListDiv = document.getElementById('city-list');
+            cityListDiv.innerHTML = '';
+            
+            document.getElementById('cities-section').style.display = 'block';
+            document.getElementById('estado-title').textContent = `Ciudades de ${estadoNombre} (${cities.length})`;
+            
+            if (cities.length === 0) {
+                cityListDiv.innerHTML = '<p style="padding: 20px; text-align: center; color: #7F8C8D;">No hay ciudades registradas en este estado aún.<br><br>💡 <em>Puedes agregarlas fácilmente al diccionario mexican_cities</em></p>';
+                return;
+            }
+            
+            cities.forEach(city => {
+                // Color base para ciudades no analizadas
+                const marker = L.circleMarker([city.lat, city.lon], {
+                    radius: 10,
+                    fillColor: '#95A5A6',  // Gris por defecto
+                    color: '#fff',
+                    weight: 2,
+                    opacity: 1,
+                    fillOpacity: 0.7
+                }).addTo(map);
+                
+                const poblacion = city.poblacion || city.population || 0;
+                marker.bindPopup(`<b>${city.name}</b><br>Población: ${poblacion.toLocaleString()}<br><em>Clic para analizar</em>`);
+                marker.on('click', () => analyzeCity(city.name, city.lat, city.lon));
+                
+                // Guardar referencia para actualizarlo después
+                marker.cityName = city.name;
+                cityMarkers.push(marker);
+                
+                const cityItem = document.createElement('div');
+                cityItem.className = 'state-item';
+                const poblacionItem = city.poblacion || city.population || 0;
+                cityItem.innerHTML = `<span>${city.name}</span><span class="city-count">${(poblacionItem / 1000).toFixed(0)}k hab</span>`;
+                cityItem.onclick = () => analyzeCity(city.name, city.lat, city.lon);
+                cityListDiv.appendChild(cityItem);
+            });
+        }
+        
+        function analyzeCity(cityName, lat, lon) {
+            // Hacer zoom a la ciudad
+            if (lat && lon) {
+                map.setView([lat, lon], 12, {
+                    animate: true,
+                    duration: 1.5
+                });
+            }
+            
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('city-data').style.display = 'none';
+            
+            fetch('/api/analyze_city', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ city_name: cityName })
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('loading').style.display = 'none';
+                if (data.success) {
+                    displayCityData(cityName, data.data);
+                    updateCityMarker(cityName, data.data);
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(error => {
+                document.getElementById('loading').style.display = 'none';
+                alert('Error al conectar con el servidor');
+            });
+        }
+        
+        /**
+         * Actualiza el marcador de la ciudad con color y tamaño según su salud
+         */
+        function updateCityMarker(cityName, data) {
+            // Encontrar el marcador de esta ciudad
+            const marker = cityMarkers.find(m => m.cityName === cityName);
+            if (!marker) return;
+            
+            // Calcular nivel de salud
+            const healthLevel = getHealthLevel(data.health_score || 50);
+            
+            // Calcular radio basado en AQI
+            const aqi = data.air_quality ? data.air_quality.aqi : 50;
+            const radius = getCircleRadius(aqi);
+            
+            // Actualizar estilo del marcador
+            marker.setStyle({
+                radius: radius,
+                fillColor: healthLevel.color,
+                color: '#fff',
+                weight: 3,
+                opacity: 1,
+                fillOpacity: 0.8
+            });
+            
+            // Resaltar el marcador seleccionado
+            if (selectedCityMarker && selectedCityMarker !== marker) {
+                // Reducir opacidad del anterior
+                selectedCityMarker.setStyle({
+                    fillOpacity: 0.6,
+                    weight: 2
+                });
+            }
+            
+            selectedCityMarker = marker;
+            
+            // Actualizar popup
+            const poblacion = marker.getPopup().getContent().match(/Población: ([^<]+)/);
+            const pobText = poblacion ? poblacion[1] : 'N/A';
+            
+            marker.setPopupContent(`
+                <div style="text-align: center;">
+                    <b style="font-size: 16px;">${cityName}</b><br>
+                    <span style="font-size: 24px;">${healthLevel.emoji}</span><br>
+                    <strong style="color: ${healthLevel.color};">${healthLevel.level}</strong><br>
+                    <small>Score: ${data.health_score ? data.health_score.toFixed(1) : 'N/A'}/100</small><br>
+                    <small>AQI: ${aqi}</small><br>
+                    <small>Población: ${pobText}</small>
+                </div>
+            `);
+            
+            // Abrir popup automáticamente
+            marker.openPopup();
+        }
+        
+        function displayCityData(cityName, data) {
+            document.getElementById('city-data').style.display = 'block';
+            document.getElementById('city-name').textContent = `📊 Análisis de ${cityName}`;
+            const metricsDiv = document.getElementById('city-metrics');
+            metricsDiv.innerHTML = '';
+            
+            // Índice de Salud General con Sistema de Rangos
+            if (data.health_score !== undefined) {
+                const healthLevel = getHealthLevel(data.health_score);
+                
+                metricsDiv.innerHTML += `
+                    <div class="metric-card ${healthLevel.bgClass}" style="grid-column: 1 / -1; color: white;">
+                        <h4 style="color: white;">🏥 Índice de Salud Urbana</h4>
+                        <div style="display: flex; align-items: center; justify-content: center; gap: 15px; margin: 15px 0;">
+                            <span style="font-size: 60px;">${healthLevel.emoji}</span>
+                            <div>
+                                <div class="metric-value" style="font-size: 48px; color: white;">${data.health_score.toFixed(1)}/100</div>
+                                <div style="font-size: 20px; font-weight: bold; margin-top: 5px;">${healthLevel.level}</div>
+                            </div>
+                        </div>
+                        <div class="metric-label" style="color: rgba(255,255,255,0.9);">Índice Compuesto de Salud</div>
+                    </div>`;
+            }
+            
+            // Calidad del Aire con rangos
+            if (data.air_quality) {
+                const aqi = data.air_quality.aqi;
+                let aqiLevel = 'BUENO';
+                let aqiColor = '#27AE60';
+                let aqiEmoji = '😊';
+                
+                if (aqi <= 50) {
+                    aqiLevel = 'BUENO'; aqiColor = '#27AE60'; aqiEmoji = '😊';
+                } else if (aqi <= 100) {
+                    aqiLevel = 'MODERADO'; aqiColor = '#3498DB'; aqiEmoji = '😐';
+                } else if (aqi <= 150) {
+                    aqiLevel = 'INSALUBRE'; aqiColor = '#F39C12'; aqiEmoji = '😷';
+                } else if (aqi <= 200) {
+                    aqiLevel = 'MUY INSALUBRE'; aqiColor = '#E67E22'; aqiEmoji = '🤢';
+                } else {
+                    aqiLevel = 'PELIGROSO'; aqiColor = '#E74C3C'; aqiEmoji = '☠️';
+                }
+                
+                metricsDiv.innerHTML += `
+                    <div class="metric-card">
+                        <h4>🌬️ Calidad del Aire</h4>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="font-size: 36px;">${aqiEmoji}</span>
+                            <div>
+                                <div class="metric-value" style="color: ${aqiColor};">${aqi}</div>
+                                <div style="font-weight: bold; color: ${aqiColor};">${aqiLevel}</div>
+                            </div>
+                        </div>
+                        <div class="metric-label">${data.air_quality.status}</div>
+                    </div>`;
+            }
+            
+            if (data.air_quality && data.air_quality.pm25 !== null) {
+                metricsDiv.innerHTML += `<div class="metric-card"><h4>💨 Partículas Suspendidas</h4><div class="metric-value">PM2.5: ${data.air_quality.pm25} µg/m³</div><div class="metric-value">PM10: ${data.air_quality.pm10} µg/m³</div></div>`;
+            }
+            if (data.weather) {
+                metricsDiv.innerHTML += `<div class="metric-card"><h4>🌡️ Temperatura</h4><div class="metric-value">${data.weather.temperatura}°C</div><div class="metric-label">Humedad: ${data.weather.humedad}%</div></div>`;
+            }
+            if (data.fires !== undefined) {
+                const fireClass = data.fires === 0 ? 'status-excelente' : 'status-critico';
+                metricsDiv.innerHTML += `<div class="metric-card"><h4>🔥 Incendios Detectados</h4><div class="metric-value ${fireClass}">${data.fires}</div><div class="metric-label">Últimas 24 horas (radio 50km)</div></div>`;
+            }
+            if (data.vegetation) {
+                const ndviClass = data.vegetation.ndvi_promedio > 0.4 ? 'status-excelente' : data.vegetation.ndvi_promedio > 0.2 ? 'status-normal' : 'status-severo';
+                metricsDiv.innerHTML += `<div class="metric-card"><h4>🌳 Índice de Vegetación (NDVI)</h4><div class="metric-value ${ndviClass}">${data.vegetation.ndvi_promedio}</div><div class="metric-label">${data.vegetation.cobertura_verde}% de cobertura verde</div></div>`;
+            }
+            
+            // Botón para ver gráficas de análisis
+            metricsDiv.innerHTML += `
+                <div class="metric-card" style="grid-column: 1 / -1; text-align: center; background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); padding: 25px;">
+                    <h4 style="color: white; margin-bottom: 15px; font-size: 18px;">📊 Reporte Visual Disponible</h4>
+                    <p style="color: rgba(255,255,255,0.9); margin-bottom: 15px;">Visualiza todos los datos encontrados en gráficas interactivas</p>
+                    <button class="charts-btn" onclick="showChartsModal()" style="margin: 0 auto;">
+                        <span>📈</span>
+                        <span>Ver Gráficas de Análisis</span>
+                        <span>→</span>
+                    </button>
+                </div>`;
+            
+            // Guardar datos para las gráficas
+            window.currentCityData = data;
+            
+            // Botón para ver recomendaciones de IA
+            if (data.ai_insights && (data.ai_insights.prediction || data.ai_insights.recommendations.length > 0)) {
+                metricsDiv.innerHTML += `
+                    <div class="metric-card" style="grid-column: 1 / -1; text-align: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 25px;">
+                        <h4 style="color: white; margin-bottom: 15px; font-size: 18px;">🤖 Análisis Predictivo Disponible</h4>
+                        <p style="color: rgba(255,255,255,0.9); margin-bottom: 15px;">Obtén predicciones a 12 meses y recomendaciones estratégicas generadas por IA</p>
+                        <button class="gemini-btn" onclick="showAIModal()" style="margin: 0 auto;">
+                            <span>✨</span>
+                            <span>Ver Recomendaciones de IA Gemini</span>
+                            <span>→</span>
+                        </button>
+                    </div>`;
+                
+                // Guardar datos de IA globalmente
+                window.currentAIData = data.ai_insights;
+                window.currentCityName = cityName;
+            }
+            
+            // Scroll automático a los resultados
+            setTimeout(() => {
+                document.getElementById('city-data').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }, 100);
+        }
+        
+        function populateStateList() {
+            const stateListDiv = document.getElementById('state-list');
+            const regions = {
+                'Norte': ['Baja California', 'Baja California Sur', 'Chihuahua', 'Coahuila', 'Durango', 'Nuevo León', 'Sinaloa', 'Sonora', 'Tamaulipas'],
+                'Centro': ['Aguascalientes', 'Ciudad de México', 'Estado de México', 'Guanajuato', 'Hidalgo', 'Morelos', 'Puebla', 'Querétaro', 'San Luis Potosí', 'Tlaxcala', 'Zacatecas'],
+                'Occidente': ['Colima', 'Jalisco', 'Michoacán', 'Nayarit'],
+                'Sur': ['Chiapas', 'Guerrero', 'Oaxaca'],
+                'Golfo': ['Tabasco', 'Veracruz'],
+                'Península': ['Campeche', 'Quintana Roo', 'Yucatán']
+            };
+            
+            for (const [region, estadosEnRegion] of Object.entries(regions)) {
+                const regionTitle = document.createElement('h3');
+                regionTitle.textContent = region;
+                regionTitle.style.cssText = 'margin-top: 15px; margin-bottom: 10px; color: #34495E;';
+                stateListDiv.appendChild(regionTitle);
+                
+                estadosEnRegion.forEach(estadoNombre => {
+                    if (estados[estadoNombre]) {
+                        const citiesCount = Object.values(allCities).filter(c => c.estado === estadoNombre).length;
+                        const stateItem = document.createElement('div');
+                        stateItem.className = 'state-item';
+                        stateItem.innerHTML = `<span>${estadoNombre}</span><span class="city-count">${citiesCount} ${citiesCount === 1 ? 'ciudad' : 'ciudades'}</span>`;
+                        stateItem.onclick = () => selectEstado(estadoNombre);
+                        stateListDiv.appendChild(stateItem);
+                    }
+                });
+            }
+        }
+        
+        function clearMarkers() {
+            estadoMarkers.forEach(m => map.removeLayer(m));
+            estadoMarkers = [];
+            clearCityMarkers();
+        }
+        
+        function clearCityMarkers() {
+            cityMarkers.forEach(m => map.removeLayer(m));
+            cityMarkers = [];
+        }
+        
+        // Función para convertir Markdown básico a HTML
+        function markdownToHtml(text) {
+            if (!text) return '';
+            
+            return text
+                // Negritas: **texto** o __texto__
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/__(.*?)__/g, '<strong>$1</strong>')
+                // Cursivas: *texto* o _texto_
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                .replace(/_(.*?)_/g, '<em>$1</em>')
+                // Saltos de línea
+                .replace(/\n/g, '<br>')
+                // Listas con viñetas (- o *)
+                .replace(/^[-*]\s(.+)$/gm, '• $1')
+                // Texto entre `backticks`
+                .replace(/`(.*?)`/g, '<code>$1</code>')
+                // Enlaces básicos [texto](url)
+                .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+        }
+
+        // Funciones para el modal de IA
+        function showAIModal() {
+            if (!window.currentAIData) {
+                alert('No hay datos de IA disponibles');
+                return;
+            }
+            
+            const modal = document.getElementById('ai-modal');
+            const modalHeader = modal.querySelector('.modal-header h2');
+            const predictionText = document.getElementById('modal-prediction-text');
+            const recommendationsList = document.getElementById('modal-recommendations-list');
+            
+            // Actualizar título con nombre de ciudad
+            modalHeader.innerHTML = `🤖 Análisis IA - ${window.currentCityName || 'Ciudad'}`;
+            
+            // Actualizar predicción (convertir Markdown a HTML)
+            if (window.currentAIData.prediction) {
+                predictionText.innerHTML = markdownToHtml(window.currentAIData.prediction);
+            } else {
+                document.getElementById('modal-prediction-section').style.display = 'none';
+            }
+            
+            // Actualizar recomendaciones (convertir Markdown a HTML)
+            if (window.currentAIData.recommendations && window.currentAIData.recommendations.length > 0) {
+                recommendationsList.innerHTML = '';
+                window.currentAIData.recommendations.forEach(rec => {
+                    const li = document.createElement('li');
+                    li.innerHTML = markdownToHtml(rec);
+                    recommendationsList.appendChild(li);
+                });
+            } else {
+                document.getElementById('modal-recommendations-section').style.display = 'none';
+            }
+            
+            // Mostrar modal
+            modal.style.display = 'block';
+            document.body.style.overflow = 'hidden'; // Prevenir scroll del body
+        }
+        
+        function closeAIModal(event) {
+            // Si se hizo clic en el overlay (no en el contenido del modal)
+            if (!event || event.target.classList.contains('modal-overlay')) {
+                const modal = document.getElementById('ai-modal');
+                modal.style.display = 'none';
+                document.body.style.overflow = 'auto'; // Restaurar scroll
+                
+                // Restaurar visibilidad de secciones para próxima apertura
+                document.getElementById('modal-prediction-section').style.display = 'block';
+                document.getElementById('modal-recommendations-section').style.display = 'block';
+            }
+        }
+        
+        // =====================================
+        // FUNCIONES PARA MODAL DE GRÁFICAS
+        // =====================================
+        
+        let chartInstances = []; // Para guardar referencias a las gráficas
+        
+        function showChartsModal() {
+            const data = window.currentCityData;
+            const cityName = window.currentCityName;
+            
+            if (!data) {
+                alert('No hay datos disponibles para generar gráficas');
+                return;
+            }
+            
+            // Actualizar título
+            document.getElementById('charts-city-title').textContent = `📍 ${cityName}`;
+            
+            // Limpiar gráficas anteriores
+            destroyAllCharts();
+            
+            // Generar resumen de métricas
+            generateMetricSummary(data);
+            
+            // Generar todas las gráficas
+            generateAllCharts(data);
+            
+            // Mostrar modal
+            const modal = document.getElementById('charts-modal');
+            modal.style.display = 'block';
+            document.body.style.overflow = 'hidden';
+        }
+        
+        function closeChartsModal(event) {
+            if (!event || event.target.classList.contains('modal-overlay')) {
+                const modal = document.getElementById('charts-modal');
+                modal.style.display = 'none';
+                document.body.style.overflow = 'auto';
+                
+                // Destruir gráficas para liberar memoria
+                destroyAllCharts();
+            }
+        }
+        
+        function destroyAllCharts() {
+            chartInstances.forEach(chart => {
+                if (chart) chart.destroy();
+            });
+            chartInstances = [];
+        }
+        
+        function generateMetricSummary(data) {
+            const summaryDiv = document.getElementById('metric-summary');
+            const healthLevel = getHealthLevel(data.health_score || 50);
+            
+            summaryDiv.innerHTML = `
+                <div class="metric-summary-item">
+                    <div class="value" style="color: ${healthLevel.color};">${healthLevel.emoji}</div>
+                    <div class="label">Nivel: ${healthLevel.level}</div>
+                </div>
+                <div class="metric-summary-item">
+                    <div class="value">${data.health_score ? data.health_score.toFixed(1) : 'N/A'}</div>
+                    <div class="label">Score de Salud</div>
+                </div>
+                <div class="metric-summary-item">
+                    <div class="value">${data.air_quality ? data.air_quality.aqi : 'N/A'}</div>
+                    <div class="label">AQI (Aire)</div>
+                </div>
+                <div class="metric-summary-item">
+                    <div class="value">${data.weather ? data.weather.temperatura + '°C' : 'N/A'}</div>
+                    <div class="label">Temperatura</div>
+                </div>
+            `;
+        }
+        
+        function generateAllCharts(data) {
+            const container = document.getElementById('charts-container');
+            container.innerHTML = '';
+            
+            // 1. Gráfica de Salud General (Gauge/Donut)
+            createHealthScoreChart(container, data);
+            
+            // 2. Gráfica de Calidad del Aire (Bar)
+            if (data.air_quality) {
+                createAirQualityChart(container, data.air_quality);
+            }
+            
+            // 3. Gráfica de Clima (Line)
+            if (data.weather) {
+                createWeatherChart(container, data.weather);
+            }
+            
+            // 4. Gráfica de Partículas (Horizontal Bar)
+            if (data.air_quality && data.air_quality.pm25 !== null) {
+                createParticlesChart(container, data.air_quality);
+            }
+            
+            // 5. Gráfica de Vegetación (Pie)
+            if (data.vegetation) {
+                createVegetationChart(container, data.vegetation);
+            }
+            
+            // 6. Gráfica de Incendios (Polar Area)
+            if (data.fires !== undefined) {
+                createFiresChart(container, data.fires);
+            }
+        }
+        
+        function createHealthScoreChart(container, data) {
+            const score = data.health_score || 50;
+            const healthLevel = getHealthLevel(score);
+            
+            const div = document.createElement('div');
+            div.className = 'chart-container';
+            div.innerHTML = `
+                <h3>🏥 Índice de Salud Urbana</h3>
+                <div class="chart-canvas-wrapper">
+                    <canvas id="healthScoreChart"></canvas>
+                </div>
+                <div class="chart-info-box">
+                    <strong>Interpretación:</strong> El índice de salud urbana es ${healthLevel.level} (${score.toFixed(1)}/100). 
+                    Este valor se calcula considerando calidad del aire, clima, vegetación y factores de riesgo.
+                </div>
+            `;
+            container.appendChild(div);
+            
+            const ctx = document.getElementById('healthScoreChart').getContext('2d');
+            const chart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Score', 'Restante'],
+                    datasets: [{
+                        data: [score, 100 - score],
+                        backgroundColor: [healthLevel.color, '#E0E0E0'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { enabled: false }
+                    },
+                    cutout: '75%'
+                }
+            });
+            chartInstances.push(chart);
+            
+            // Agregar texto en el centro
+            const centerText = document.createElement('div');
+            centerText.style.cssText = 'position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; pointer-events: none;';
+            centerText.innerHTML = `<div style="font-size: 48px;">${healthLevel.emoji}</div><div style="font-size: 32px; font-weight: bold; color: ${healthLevel.color};">${score.toFixed(1)}</div><div style="font-size: 14px; color: #7F8C8D;">/ 100</div>`;
+            div.querySelector('.chart-canvas-wrapper').appendChild(centerText);
+        }
+        
+        function createAirQualityChart(container, airData) {
+            const aqi = airData.aqi;
+            const pm25 = airData.pm25 || 0;
+            const pm10 = airData.pm10 || 0;
+            
+            const div = document.createElement('div');
+            div.className = 'chart-container';
+            div.innerHTML = `
+                <h3>🌬️ Calidad del Aire</h3>
+                <div class="chart-canvas-wrapper">
+                    <canvas id="airQualityChart"></canvas>
+                </div>
+                <div class="chart-info-box">
+                    <strong>AQI:</strong> ${aqi} - ${airData.status}<br>
+                    <strong>PM2.5:</strong> ${pm25} µg/m³ | <strong>PM10:</strong> ${pm10} µg/m³
+                </div>
+            `;
+            container.appendChild(div);
+            
+            const ctx = document.getElementById('airQualityChart').getContext('2d');
+            const chart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['AQI', 'PM2.5', 'PM10'],
+                    datasets: [{
+                        label: 'Valores',
+                        data: [aqi, pm25, pm10],
+                        backgroundColor: [
+                            aqi <= 50 ? '#27AE60' : aqi <= 100 ? '#3498DB' : aqi <= 150 ? '#F39C12' : '#E74C3C',
+                            pm25 <= 12 ? '#27AE60' : pm25 <= 35 ? '#3498DB' : pm25 <= 55 ? '#F39C12' : '#E74C3C',
+                            pm10 <= 54 ? '#27AE60' : pm10 <= 154 ? '#3498DB' : pm10 <= 254 ? '#F39C12' : '#E74C3C'
+                        ],
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+            chartInstances.push(chart);
+        }
+        
+        function createWeatherChart(container, weather) {
+            const div = document.createElement('div');
+            div.className = 'chart-container';
+            div.innerHTML = `
+                <h3>🌡️ Condiciones Climáticas</h3>
+                <div class="chart-canvas-wrapper">
+                    <canvas id="weatherChart"></canvas>
+                </div>
+                <div class="chart-info-box">
+                    <strong>Temperatura:</strong> ${weather.temperatura}°C | 
+                    <strong>Humedad:</strong> ${weather.humedad}%
+                </div>
+            `;
+            container.appendChild(div);
+            
+            const ctx = document.getElementById('weatherChart').getContext('2d');
+            const chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['Min Ideal', 'Actual', 'Max Ideal'],
+                    datasets: [{
+                        label: 'Temperatura (°C)',
+                        data: [15, weather.temperatura, 25],
+                        borderColor: '#E67E22',
+                        backgroundColor: 'rgba(230, 126, 34, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }, {
+                        label: 'Humedad (%)',
+                        data: [40, weather.humedad, 60],
+                        borderColor: '#3498DB',
+                        backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: true, position: 'top' }
+                    },
+                    scales: {
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+            chartInstances.push(chart);
+        }
+        
+        function createParticlesChart(container, airData) {
+            const div = document.createElement('div');
+            div.className = 'chart-container';
+            div.innerHTML = `
+                <h3>💨 Partículas Suspendidas</h3>
+                <div class="chart-canvas-wrapper">
+                    <canvas id="particlesChart"></canvas>
+                </div>
+                <div class="chart-info-box">
+                    Las partículas PM2.5 son más peligrosas por su tamaño microscópico. 
+                    Valores seguros: PM2.5 < 12 µg/m³, PM10 < 54 µg/m³
+                </div>
+            `;
+            container.appendChild(div);
+            
+            const ctx = document.getElementById('particlesChart').getContext('2d');
+            const chart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['PM2.5 Actual', 'PM2.5 Seguro', 'PM10 Actual', 'PM10 Seguro'],
+                    datasets: [{
+                        label: 'µg/m³',
+                        data: [airData.pm25, 12, airData.pm10, 54],
+                        backgroundColor: [
+                            airData.pm25 > 12 ? '#E74C3C' : '#27AE60',
+                            '#95A5A6',
+                            airData.pm10 > 54 ? '#E74C3C' : '#27AE60',
+                            '#95A5A6'
+                        ],
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        x: { beginAtZero: true }
+                    }
+                }
+            });
+            chartInstances.push(chart);
+        }
+        
+        function createVegetationChart(container, vegetation) {
+            const cobertura = vegetation.cobertura_verde || 0;
+            const sinCobertura = 100 - cobertura;
+            
+            const div = document.createElement('div');
+            div.className = 'chart-container';
+            div.innerHTML = `
+                <h3>🌳 Índice de Vegetación</h3>
+                <div class="chart-canvas-wrapper">
+                    <canvas id="vegetationChart"></canvas>
+                </div>
+                <div class="chart-info-box">
+                    <strong>NDVI:</strong> ${vegetation.ndvi_promedio} | 
+                    <strong>Cobertura Verde:</strong> ${cobertura}%<br>
+                    El NDVI mide la densidad de vegetación saludable (0-1). Valores > 0.4 son ideales.
+                </div>
+            `;
+            container.appendChild(div);
+            
+            const ctx = document.getElementById('vegetationChart').getContext('2d');
+            const chart = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: ['Cobertura Verde', 'Sin Cobertura'],
+                    datasets: [{
+                        data: [cobertura, sinCobertura],
+                        backgroundColor: ['#27AE60', '#BDC3C7'],
+                        borderWidth: 2,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    }
+                }
+            });
+            chartInstances.push(chart);
+        }
+        
+        function createFiresChart(container, fires) {
+            const div = document.createElement('div');
+            div.className = 'chart-container';
+            div.innerHTML = `
+                <h3>🔥 Detección de Incendios</h3>
+                <div class="chart-canvas-wrapper">
+                    <canvas id="firesChart"></canvas>
+                </div>
+                <div class="chart-info-box">
+                    <strong>Incendios detectados:</strong> ${fires} en las últimas 24 horas (radio 50km)<br>
+                    Datos de NASA FIRMS (Fire Information for Resource Management System)
+                </div>
+            `;
+            container.appendChild(div);
+            
+            const ctx = document.getElementById('firesChart').getContext('2d');
+            const chart = new Chart(ctx, {
+                type: 'polarArea',
+                data: {
+                    labels: ['Incendios', 'Sin Incendios'],
+                    datasets: [{
+                        data: [fires, fires === 0 ? 100 : Math.max(0, 20 - fires)],
+                        backgroundColor: [
+                            fires === 0 ? '#27AE60' : fires < 5 ? '#F39C12' : '#E74C3C',
+                            '#E8F8F5'
+                        ],
+                        borderWidth: 2,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    }
+                }
+            });
+            chartInstances.push(chart);
+        }
+        
+        // Cerrar modales con ESC
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeAIModal({ target: { classList: { contains: () => true } } });
+                closeChartsModal({ target: { classList: { contains: () => true } } });
+            }
+        });
+        
+        // Cerrar modal con tecla ESC
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeAIModal({target: {classList: {contains: () => true}}});
+            }
+        });
+        
+        document.getElementById('back-btn').addEventListener('click', showNationalView);
+        initMap();
+    </script>
+    
+    <!-- Modal de Recomendaciones IA -->
+    <div id="ai-modal" class="modal-overlay" onclick="closeAIModal(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h2>🤖 Análisis Predictivo con IA Gemini</h2>
+                <button class="modal-close" onclick="closeAIModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <span class="ai-badge">✨ Powered by Google Gemini 2.0</span>
+                
+                <div class="modal-section" id="modal-prediction-section">
+                    <h3>📈 Predicción a 12 Meses</h3>
+                    <div class="prediction-box" id="modal-prediction-text">
+                        Cargando predicción...
+                    </div>
+                </div>
+                
+                <div class="modal-section" id="modal-recommendations-section">
+                    <h3>💡 Recomendaciones Estratégicas</h3>
+                    <div class="recommendations-list">
+                        <ul id="modal-recommendations-list">
+                            <li>Cargando recomendaciones...</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal de Gráficas de Análisis -->
+    <div id="charts-modal" class="modal-overlay" onclick="closeChartsModal(event)">
+        <div class="modal-content" onclick="event.stopPropagation()" style="max-width: 900px;">
+            <div class="charts-modal-header">
+                <h2>📊 Reporte Visual de Análisis</h2>
+                <button class="modal-close" onclick="closeChartsModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div style="text-align: center; margin-bottom: 25px;">
+                    <h3 style="color: #11998e; font-size: 20px; margin-bottom: 10px;" id="charts-city-title">Ciudad</h3>
+                    <p style="color: #7F8C8D; font-size: 14px;">Análisis detallado con datos en tiempo real</p>
+                </div>
+                
+                <!-- Resumen de métricas -->
+                <div class="metric-summary" id="metric-summary"></div>
+                
+                <!-- Contenedor de gráficas -->
+                <div id="charts-container"></div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

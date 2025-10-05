@@ -1,0 +1,74 @@
+# ===============================
+# DEPENDENCIAS PARA NASA EARTH CHANGE
+# Proyecto de Análisis de Salud Urbana en México
+# ===============================
+
+# ===== FRAMEWORK WEB =====
+Flask==3.1.2
+Werkzeug==3.1.3
+
+# ===== ANÁLISIS DE DATOS =====
+pandas==2.3.0
+numpy==2.3.0
+
+# ===== VISUALIZACIÓN =====
+matplotlib==3.10.6
+plotly==6.3.1
+folium==0.20.0
+
+# ===== PETICIONES HTTP =====
+requests==2.32.4
+
+# ===== INTELIGENCIA ARTIFICIAL =====
+google-generativeai==0.8.5
+
+# ===== VARIABLES DE ENTORNO =====
+python-dotenv==1.1.1
+
+# ===== DEPENDENCIAS ADICIONALES =====
+Jinja2==3.1.6
+MarkupSafe==3.0.2
+itsdangerous==2.2.0
+click==8.2.1
+blinker==1.9.0
+
+# ===== DEPENDENCIAS DE PLOTLY =====
+narwhals>=1.15.1
+packaging>=20.0
+
+# ===== DEPENDENCIAS DE FOLIUM =====
+branca>=0.6.0
+xyzservices
+
+# ===== DEPENDENCIAS DE GOOGLE AI =====
+google-ai-generativelanguage==0.6.15
+google-api-core
+google-api-python-client
+google-auth>=2.15.0
+protobuf
+pydantic
+tqdm
+typing-extensions
+
+# ===== UTILIDADES =====
+certifi>=2017.4.17
+charset-normalizer<4,>=2
+idna<4,>=2.5
+urllib3<3,>=1.21.1
+pyparsing>=2.3.1
+python-dateutil>=2.8.2
+pytz>=2020.1
+tzdata>=2022.7
+
+# ===== DEPENDENCIAS DE MATPLOTLIB =====
+contourpy>=1.0.1
+cycler>=0.10
+fonttools>=4.22.0
+kiwisolver>=1.3.1
+pillow>=8
+
+# ===== DEPENDENCIAS DE GOOGLE AUTH =====
+cachetools<6.0,>=2.0.0
+pyasn1-modules>=0.2.1
+rsa<5,>=3.1.4
+pyasn1>=0.1.3

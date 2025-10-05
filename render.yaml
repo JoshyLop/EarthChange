@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: nasa-earth-change
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python mexico_interactive_map.py
+    envVars:
+      - key: FLASK_DEBUG
+        value: False
+      - key: FLASK_HOST
+        value: 0.0.0.0
+      - key: PORT
+        fromService:
+          type: web
+          name: nasa-earth-change
+          property: port

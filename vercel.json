@@ -1,0 +1,19 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "mexico_interactive_map.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "mexico_interactive_map.py"
+    }
+  ],
+  "env": {
+    "FLASK_DEBUG": "False",
+    "FLASK_HOST": "0.0.0.0"
+  }
+}

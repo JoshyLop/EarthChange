@@ -1,0 +1,112 @@
+# ===============================
+# ARCHIVO .GITIGNORE PARA PROYECTO NASA EARTH CHANGE
+# ===============================
+
+# ===== CLAVES DE API Y ARCHIVOS SENSIBLES =====
+.env
+*.env
+.env.local
+.env.production
+.env.staging
+.env.development
+config.json
+secrets.json
+api_keys.py
+credentials.json
+
+# ===== ARCHIVOS DE PYTHON =====
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# ===== ENTORNOS VIRTUALES =====
+.env/
+.venv/
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.python-version
+
+# ===== IDEs Y EDITORES =====
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ===== JUPYTER NOTEBOOKS =====
+.ipynb_checkpoints/
+*.ipynb
+
+# ===== LOGS Y TEMPORALES =====
+*.log
+*.out
+*.err
+temp/
+tmp/
+*.tmp
+*.temp
+*.cache
+
+# ===== DATOS Y MODELOS =====
+data/raw/
+data/processed/
+models/
+*.pkl
+*.h5
+*.model
+
+# ===== ARCHIVOS DE SISTEMA =====
+*.pid
+*.seed
+*.pid.lock
+.nyc_output
+
+# ===== DEPENDENCIAS =====
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ===== ARCHIVOS DE BACKUP =====
+*.bak
+*.backup
+*.old
+
+# ===== ARCHIVOS ESPECÍFICOS DEL PROYECTO =====
+temp_data_extract.txt
+*.csv
+*.xlsx
+raw_data/
+processed_data/
+
+# ===== PERO MANTENER ESTOS ARCHIVOS IMPORTANTES =====
+!requirements.txt
+!README.md
+!index.html
+!templates/
+!img/
+!Api/
