@@ -25,6 +25,11 @@ def health_check():
     """Health check endpoint para Render"""
     return {'status': 'healthy', 'service': 'NASA Earth Change'}, 200
 
+@app.route('/ping')
+def ping():
+    """Endpoint alternativo para health check"""
+    return 'OK', 200
+
 @app.route('/')
 def index():
     """Página principal con mapa interactivo jerárquico"""
