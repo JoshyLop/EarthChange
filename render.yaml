@@ -5,6 +5,7 @@ services:
     plan: free
     buildCommand: pip install -r requirements.txt
     startCommand: python mexico_interactive_map.py
+    healthCheckPath: /health
     envVars:
       - key: FLASK_DEBUG
         value: False
